@@ -1,0 +1,786 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>xrpackage | trees</title>
+  <link rel=icon type="image/png" href="favicon.png">
+  <link href="/index.css" rel=stylesheet>
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700&display=swap" rel="stylesheet">
+  <script src="https://kit.fontawesome.com/0735724151.js" crossorigin="anonymous"></script>
+</head>
+
+<body class="header-gap">
+  <header class=header id=header>
+    <a href="/" class="nav icon">山</a>
+    <nav class="selector nav bar" id=selector>
+      <i class="fa fa-user head"></i>
+      <div class=header-label id=header-label>Log in</div>
+      <i class="fa fa-chevron-down tail"></i>
+      <div class=selections id=selections>
+        <a href="run.html" class=selection id=run-mode>
+          <i class="fa fa-play"></i>
+          <div class=wrap>
+            <h3>Run mode</h3>
+            <p>Switch to run mode</p>
+          </div>
+        </a>
+        <a href="edit.html" class=selection id=edit-mode>
+          <i class="fa fa-pencil"></i>
+          <div class=wrap>
+            <h3>Edit mode</h3>
+            <p>You are currently editing this world</p>
+          </div>
+        </a>
+        <a href="browse.html" class="selection dim">
+          <i class="fa fa-solar-system"></i>
+          <div class=wrap>
+            <h3>Browse packages</h3>
+            <p>Explore the XRPackage registry</p>
+          </div>
+        </a>
+        <a href="help.html" class=selection>
+          <i class="fa fa-book"></i>
+          <div class=wrap>
+            <h3>Documentation</h3>
+            <p>Learn how to make packages and worlds</p>
+          </div>
+        </a>
+      </div>
+    </nav>
+
+    <form class="login-form phase-1" id=login-form>
+      <div class=phase-content>
+        <div class=login-notice id=login-notice></div>
+        <div class=login-error id=login-error></div>
+      </div>
+      <div class="phase-content phase-1-content">
+        <input type=email placeholder="your@email.com" id=login-email>
+        <input type=submit value="Log in" class="button highlight">
+      </div>
+      <div class="phase-content phase-2-content">
+        <input type=text placeholder="Verification code" id=login-verification-code>
+        <input type=submit value="Verify" class="button highlight">
+      </div>
+      <div class="phase-content phase-3-content">
+        <nav class=user-button id=user-button>
+          <img src="favicon.ico">
+          <span class=name id=login-email-static></span>
+          <input type=submit value="Log out" class="button highlight">
+        </nav>
+      </div>
+      <div class="phase-content phaseless-content">
+        <div>Working...</div>
+      </div>
+    </form>
+  </header>
+
+<script type=module>
+
+import * as THREE from './three.module.js';
+import {OrbitControls} from './OrbitControls.js';
+import alea from './alea.js';
+import indev from './indev.js';
+import murmur from './murmur.js';
+
+const animal = (() => {
+
+const ANIMALS = [
+  'bear',
+  'bee',
+  'bird',
+  'bunny',
+  'cow',
+  'chicken',
+  'crocodile',
+  'elephant',
+  'fish',
+  'gull',
+  'horse',
+  'raptor',
+  'penguin',
+  'piranha',
+  'rat',
+  'turtle',
+  'wolf',
+  'whale',
+];
+const DATA_PATH = typeof __dirname !== 'undefined' ? __dirname : null;
+const ANIMAL_SHADER = {
+  uniforms: {
+    theta: {
+      type: 'f',
+      value: 0,
+    },
+    headRotation: {
+      type: 'v4',
+      value: new THREE.Vector4(),
+    },
+    hit: {
+      type: 'f',
+      value: 0,
+    },
+    map: {
+      type: 't',
+      value: null,
+    },
+  },
+  vertexShader: `\
+    #define PI 3.1415926535897932384626433832795
+    uniform vec4 headRotation;
+    uniform float theta;
+    attribute float skinIndex;
+    attribute vec3 dy;
+    varying vec3 vViewPosition;
+    varying vec2 vUv;
+    vec3 applyQuaternion(vec3 vec, vec4 quat) {
+      return vec + 2.0 * cross( cross( vec, quat.xyz ) + quat.w * vec, quat.xyz );
+    }
+    mat4 rotationMatrix(vec3 axis, float angle) {
+        axis = normalize(axis);
+        float s = sin(angle);
+        float c = cos(angle);
+        float oc = 1.0 - c;
+
+        return mat4(oc * axis.x * axis.x + c,           oc * axis.x * axis.y - axis.z * s,  oc * axis.z * axis.x + axis.y * s,  0.0,
+                    oc * axis.x * axis.y + axis.z * s,  oc * axis.y * axis.y + c,           oc * axis.y * axis.z - axis.x * s,  0.0,
+                    oc * axis.z * axis.x - axis.y * s,  oc * axis.y * axis.z + axis.x * s,  oc * axis.z * axis.z + c,           0.0,
+                    0.0,                                0.0,                                0.0,                                1.0);
+    }
+    vec3 rotateAxisAngle(vec3 v, vec3 axis, float angle) {
+      mat4 m = rotationMatrix(axis, angle);
+      return (m * vec4(v, 1.0)).xyz;
+    }
+    void main() {
+      vec3 pos = position.xyz;
+      if (skinIndex == 0.0) {
+        pos = pos - dy + applyQuaternion(dy, headRotation);
+      } else if (skinIndex == 1.0 || skinIndex == 4.0) {
+        pos = pos - dy + rotateAxisAngle(dy, vec3(1.0, 0.0, 0.0), -theta);
+      } else if (skinIndex == 2.0 || skinIndex == 3.0) {
+        pos = pos - dy + rotateAxisAngle(dy, vec3(1.0, 0.0, 0.0), theta);
+      } else if (skinIndex == 5.0) {
+        pos = pos - dy + rotateAxisAngle(dy, vec3(0.0, 0.0, 1.0), theta);
+      } else if (skinIndex == 6.0) {
+        pos = pos - dy + rotateAxisAngle(dy, vec3(0.0, 0.0, 1.0), -theta);
+      }
+      vec4 mvPosition = modelViewMatrix * vec4( pos, 1.0 );
+      gl_Position = projectionMatrix * mvPosition;
+      vViewPosition = position.xyz;
+      vUv = uv;
+    }
+  `,
+  fragmentShader: `\
+    uniform sampler2D map;
+    uniform float hit;
+    varying vec3 vViewPosition;
+    varying vec2 vUv;
+    float sat(float f) {
+      return clamp(f, 0.0, 1.0);
+    }
+    void main() {
+      vec4 diffuseColor = texture2D(map, vUv);
+      if (diffuseColor.a < 0.5) {
+        discard;
+      }
+
+      if (hit > 0.5) {
+        diffuseColor.r += 0.3;
+      }
+
+      vec3 fdx = vec3( dFdx( vViewPosition.x ), dFdx( vViewPosition.y ), dFdx( vViewPosition.z ) );
+      vec3 fdy = vec3( dFdy( vViewPosition.x ), dFdy( vViewPosition.y ), dFdy( vViewPosition.z ) );
+      vec3 normal = normalize( cross( fdx, fdy ) );
+      float dotNL = sat( dot( normal, normalize(vViewPosition)) );
+
+      gl_FragColor = vec4(diffuseColor.rgb * (0.5 + (dotNL * 2.0) * 0.5), 1.0);
+    }
+  `
+};
+
+/* class Animal {
+  constructor(archae) {
+    this._archae = archae;
+  }
+
+  mount() {
+    const {_archae: archae} = this;
+    const {three, render} = zeo;
+    const {THREE, scene} = three;
+
+    const upVector = new THREE.Vector3(0, 1, 0);
+    const mobMaterial = new THREE.ShaderMaterial({
+      uniforms: THREE.UniformsUtils.clone(ANIMAL_SHADER.uniforms),
+      vertexShader: ANIMAL_SHADER.vertexShader,
+      fragmentShader: ANIMAL_SHADER.fragmentShader,
+      // transparent: true,
+      extensions: {
+        derivatives: true,
+      },
+    });
+    mobMaterial.volatile = true;
+
+    let live = true;
+    this._cleanup = () => {
+      live = false;
+    };
+
+    const _makeAnimalMesh = animalMeshData => {
+      const {img, model} = animalMeshData;
+      const {positions, uvs, indices, skinIndices, dys} = model;
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+      geometry.setAttribute('skinIndex', new THREE.BufferAttribute(skinIndices, 1));
+      geometry.setAttribute('dy', new THREE.BufferAttribute(dys, 3));
+      geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+
+      const texture = new THREE.Texture(
+        img,
+        THREE.UVMapping,
+        THREE.ClampToEdgeWrapping,
+        THREE.ClampToEdgeWrapping,
+        THREE.NearestFilter,
+        THREE.NearestFilter,
+        THREE.RGBAFormat,
+        THREE.UnsignedByteType,
+        1
+      );
+      texture.needsUpdate = true;
+      const material = mobMaterial;
+
+      const mesh = new THREE.Mesh(geometry, material);
+      // mesh.frustumCulled = false;
+
+      const angleRate = 1.5 * 1000;
+      const startOffset = Math.floor(Math.random() * angleRate);
+      const headRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+        Math.PI/6, // (-0.5 + Math.random()) * 2 * Math.PI/4,
+        // (-0.5 + Math.random()) * 2 * Math.PI/2,
+        Math.PI/4,
+        0,
+        'YXZ'
+      ));
+      mesh.onBeforeRender = () => {
+        material.uniforms.map.value = texture;
+        material.uniforms.headRotation.value.set(headRotation.x, headRotation.y, headRotation.z, headRotation.w);
+        material.uniforms.theta.value = Math.sin(((startOffset + now) % angleRate) / angleRate * Math.PI * 2) * 0.75;
+      };
+      mesh.destroy = () => {
+        geometry.dispose();
+        texture.dispose();
+      };
+
+      return mesh;
+    };
+
+    let now = 0;
+    const _update = () => {
+      now = Date.now();
+    };
+    render.on('update', _update);
+
+    const cleanups = [];
+    this._cleanup = () => {
+      for (let i = 0; i < cleanups.length; i++) {
+        const cleanup = cleanups[i];
+        cleanup();
+      }
+    };
+
+    cleanups.push(() => {
+      mobMaterial.dispose();
+
+      render.removeListener('update', _update);
+    });
+
+    return Promise.all(
+      ANIMALS.map((animal, i) =>
+        _requestAnimalMeshData(animal)
+          .then(animalMeshData => {
+            if (live) {
+              const mesh = _makeAnimalMesh(animalMeshData);
+              mesh.position.set((-ANIMALS.length/2 + i) * 1.5, 65, 0);
+              mesh.updateMatrixWorld();
+              scene.add(mesh);
+
+              cleanups.push(() => {
+                scene.remove(mesh);
+                mesh.destroy();
+              });
+
+              return mesh;
+            }
+          })
+      )
+    );
+  }
+
+  unmount() {
+    this._cleanup();
+  }
+} */
+
+const mobMaterial = new THREE.ShaderMaterial({
+  uniforms: THREE.UniformsUtils.clone(ANIMAL_SHADER.uniforms),
+  vertexShader: ANIMAL_SHADER.vertexShader,
+  fragmentShader: ANIMAL_SHADER.fragmentShader,
+  // transparent: true,
+  extensions: {
+    derivatives: true,
+  },
+});
+mobMaterial.volatile = true;
+
+const _resArrayBuffer = res => {
+  if (res.status >= 200 && res.status < 300) {
+    return res.arrayBuffer();
+  } else {
+    return Promise.reject({
+      status: res.status,
+      stack: 'API returned invalid status code: ' + res.status,
+    });
+  }
+};
+const _requestImageBitmap = url => new Promise((accept, reject) => {
+  const img = new Image();
+
+  img.onload = () => {
+    accept(img);
+  };
+  img.onerror = err => {
+    reject(img);
+  };
+
+  img.crossOrigin = 'Anonymous';
+  img.src = url;
+})
+  .then(img => createImageBitmap(img, 0, 0, img.width, img.height, {
+    imageOrientation: 'flipY',
+  }));
+const _requestData = url => fetch(url, {
+  credentials: 'include',
+})
+  .then(_resArrayBuffer);
+const _requestModel = url => _requestData(url)
+  .then(arrayBuffer => {
+    let byteOffset = 0;
+
+    const header = new Uint32Array(arrayBuffer, byteOffset, 5);
+    let index = 0;
+    const numPositions = header[index++];
+    const numUvs = header[index++];
+    const numIndices = header[index++];
+    const numSkinIndices = header[index++];
+    const numDys = header[index++];
+    byteOffset += index * 4;
+
+    const positions = new Float32Array(arrayBuffer, byteOffset, numPositions);
+    byteOffset += numPositions * 4;
+
+    const uvs = new Float32Array(arrayBuffer, byteOffset, numUvs);
+    byteOffset += numUvs * 4;
+
+    const indices = new Uint16Array(arrayBuffer, byteOffset, numIndices);
+    byteOffset += numIndices * 2;
+    byteOffset = _align(byteOffset, 4);
+
+    const skinIndices = new Float32Array(arrayBuffer, byteOffset, numSkinIndices);
+    byteOffset += numSkinIndices * 4;
+
+    const dys = new Float32Array(arrayBuffer, byteOffset, numDys);
+    byteOffset += numDys * 4;
+
+    const size = new THREE.Vector3().fromArray(new Float32Array(arrayBuffer, byteOffset, 3));
+    byteOffset += 3 * 4;
+
+    return {
+      positions,
+      uvs,
+      indices,
+      skinIndices,
+      dys,
+      size,
+    };
+  });
+
+const _requestAnimalMeshData = animal => Promise.all([
+  _requestImage('/archae/mob/img/' + animal + '.png'),
+  _requestModel('/archae/mob/models/' + animal + '.dat'),
+])
+  .then(([
+    img,
+    model,
+  ]) => ({
+    img,
+    model,
+  }));
+
+class ModelSpec {
+  constructor(geometry, texture, size) {
+    this.geometry = geometry;
+    this.texture = texture;
+    this.size = size;
+  }
+}
+
+const animal = modelSpec => {
+  const {geometry, texture, size} = modelSpec;
+
+  const material = new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.clone(ANIMAL_SHADER.uniforms),
+    vertexShader: ANIMAL_SHADER.vertexShader,
+    fragmentShader: ANIMAL_SHADER.fragmentShader,
+    // transparent: true,
+    extensions: {
+      derivatives: true,
+    },
+  });
+  material.uniforms.map.value = texture;
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.size = size;
+  mesh.destroy = () => {
+    /* geometry.dispose();
+    texture.dispose(); */
+  };
+  return mesh;
+};
+animal.requestModelSpecs = ({
+  imgUrlPrefix = './lib/img/',
+  modelUrlPrefix = './lib/models/',
+} = {}) => {
+  const result = {};
+  const promises = [];
+  for (let i = 0; i < ANIMALS.length; i++) {
+    const skinName = ANIMALS[i];
+    const promise = Promise.all([
+      _requestModel(`${modelUrlPrefix}${skinName}.dat`),
+      _requestImageBitmap(`${imgUrlPrefix}${skinName}.png`),
+    ])
+      .then(([
+        model,
+        img,
+      ]) => {
+        const {positions, uvs, dys, indices, skinIndices, size} = model;
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        geometry.setAttribute('dy', new THREE.BufferAttribute(dys, 3));
+        geometry.setAttribute('skinIndex', new THREE.BufferAttribute(skinIndices, 1));
+        geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+        geometry.boundingSphere = new THREE.Sphere(
+          new THREE.Vector3(),
+          Math.sqrt(size.x*size.x + size.y*size.y + size.z*size.z)
+        );
+
+        const texture = new THREE.Texture(
+          img,
+          THREE.UVMapping,
+          THREE.ClampToEdgeWrapping,
+          THREE.ClampToEdgeWrapping,
+          THREE.NearestFilter,
+          THREE.NearestFilter,
+          THREE.RGBAFormat,
+          THREE.UnsignedByteType,
+          1
+        );
+        texture.needsUpdate = true;
+
+        result[skinName] = new ModelSpec(geometry, texture, size);
+      });
+    promises.push(promise);
+  }
+  return Promise.all(promises)
+    .then(() => result);
+};
+animal.ANIMALS = ANIMALS;
+animal.DATA_PATH = DATA_PATH;
+animal.ANIMAL_SHADER = ANIMAL_SHADER;
+
+const _align = (n, alignment) => {
+  let alignDiff = n % alignment;
+  if (alignDiff > 0) {
+    n += alignment - alignDiff;
+  }
+  return n;
+};
+
+return animal;
+
+})();
+
+animal.requestModelSpecs()
+  .then(animalModelSpecs => {
+
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  alpha: true,
+});
+// renderer.domElement.style.backgroundColor = '#404040';
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.sortObjects = false;
+renderer.physicallyCorrectLights = true;
+renderer.xr.enabled = true;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 2);
+
+const orbitControls = new OrbitControls(camera, renderer.domElement);
+orbitControls.screenSpacePanning = true;
+orbitControls.enableMiddleZoom = false;
+// orbitControls.update();
+
+// const rng = new alea(DEFAULT_SEED);
+
+const headRotation = new THREE.Quaternion();
+const _updateMesh = (id, mesh, animation, hit, uniforms, now) => {
+  _updateAnimation(id, mesh, animation, uniforms, now);
+  _updateHit(mesh, hit, uniforms, now);
+
+  mesh.updateMatrixWorld();
+};
+const _updateAnimation = (id, mesh, animation, uniforms, now) => {
+  if (animation) {
+    const {mode, positionStart, positionEnd, rotationStart, rotationEnd, headRotationStart, headRotationEnd, duration, startTime} = animation;
+
+    if (mode === 'walk') {
+      const positionFactor = Math.min((now - startTime) / duration, 1);
+      const rotationFactor = Math.pow(Math.min((now - startTime) / (duration / 4), 1), 0.5);
+      const headRotationFactor = Math.pow(Math.min((now - startTime) / (duration / 8), 1), 0.5);
+
+      mesh.position.copy(positionStart)
+        .lerp(positionEnd, positionFactor);
+      mesh.quaternion.copy(rotationStart)
+        .slerp(rotationEnd, rotationFactor);
+
+      headRotation.copy(headRotationStart).slerp(headRotationEnd, headRotationFactor);
+      uniforms.headRotation.value.set(headRotation.x, headRotation.y, headRotation.z, headRotation.w);
+      const velocity = positionStart.distanceTo(positionEnd) / duration;
+      const angleRate = 1.5 / velocity;
+      uniforms.theta.value =
+        Math.sin((now % angleRate) / angleRate * Math.PI * 2) * 0.75 *
+        Math.pow(Math.sin(positionFactor * Math.PI), 0.5);
+
+      if (positionFactor >= 1) {
+        mesh.animation = null;
+      }
+    } else if (mode === 'hit') {
+      const positionFactor = Math.min((now - startTime) / duration, 1);
+      const rotationFactor = Math.pow(Math.min((now - startTime) / (duration / 4), 1), 0.5);
+      const headRotationFactor = Math.pow(Math.min((now - startTime) / (duration / 8), 1), 0.5);
+
+      mesh.position.copy(positionStart)
+        .lerp(positionEnd, positionFactor)
+        .add(
+          localVector.set(0, 1, 0)
+            .multiplyScalar(
+              -Math.pow(((positionFactor - 0.5) * 2), 2) + 1
+            )
+        );
+      mesh.quaternion.copy(rotationStart)
+        .slerp(rotationEnd, rotationFactor);
+
+      uniforms.headRotation.value.set(zeroQuaternion.x, zeroQuaternion.y, zeroQuaternion.z, zeroQuaternion.w);
+      uniforms.theta.value = 0;
+
+      if (positionFactor >= 1) {
+        mesh.animation = null;
+      }
+    } else if (mode === 'die') {
+      const v = Math.min((now - startTime) / duration, 1);
+
+      if (v < 0.5) {
+        const positionFactor = v * 2;
+        const rotationFactor = Math.pow(v * 2, 0.5);
+
+        mesh.position.copy(positionStart)
+          .lerp(positionEnd, positionFactor)
+          .add(
+            localVector.set(0, 1, 0)
+              .multiplyScalar(
+                -Math.pow(((positionFactor - 0.5) * 2), 2) + 1
+              )
+          );
+        mesh.quaternion.copy(rotationStart)
+          .slerp(rotationEnd, rotationFactor);
+      } else {
+        mesh.position.copy(positionEnd);
+        mesh.quaternion.copy(rotationEnd);
+      }
+
+      uniforms.headRotation.value.set(zeroQuaternion.x, zeroQuaternion.y, zeroQuaternion.z, zeroQuaternion.w);
+      uniforms.theta.value = 0;
+
+      if (v >= 1) {
+        scene.remove(mesh);
+        mesh.destroy();
+        meshes[id] = null;
+        _cleanupMeshes();
+      }
+    }
+  }
+};
+const _updateHit = (mesh, hit, uniforms, now) => {
+  if (hit) {
+    const {startTime} = hit;
+    const timeDiff = now - startTime;
+
+    if (timeDiff < 300) {
+      uniforms.hit.value = 1;
+    } else {
+      uniforms.hit.value = 0;
+      mesh.hit = null;
+    }
+  }
+};
+const _makeNpcMesh = skinName => skin(`/archae/mobs/npc/img/${skinName}.png`);
+const _makeAnimalMesh = skinName => animal(animalModelSpecs[skinName]);
+const _makeMesh = (id, type, skinName) => {
+  const mesh = (() => {
+    if (type === 'npc') {
+      return _makeNpcMesh(skinName);
+    } else if (type === 'animal') {
+      return _makeAnimalMesh(skinName);
+    } else {
+      console.warn('invalid npc type', JSON.stringify(type));
+      return null;
+    }
+  })();
+
+  mesh.offset = new THREE.Vector3(0, 0, 0);
+  mesh.lastHitTime = -Infinity;
+  mesh.animation = null;
+  mesh.hit = null;
+
+  const direction = new THREE.Vector3();
+  mesh.attack = () => {
+    const {hmd} = pose.getStatus();
+    const {worldPosition: hmdPosition} = hmd;
+    direction.copy(mesh.position)
+    direction.y += mesh.size.y / 2;
+    direction.sub(hmdPosition);
+    direction.y = 0;
+    direction.normalize();
+
+    const e = {
+      method: 'attackMob',
+      args: [
+        id,
+        mesh.position.toArray(),
+        direction.toArray(),
+        30,
+      ],
+    };
+    const es = JSON.stringify(e);
+    connection.send(es);
+
+    mesh.lastHitTime = Date.now();
+  };
+
+  const uniforms = (() => {
+    if (type === 'npc') {
+      const uniforms = THREE.UniformsUtils.clone(skin.SKIN_SHADER.uniforms);
+      uniforms.leftArmRotation.value.set(zeroQuaternion.x, zeroQuaternion.y, zeroQuaternion.z, zeroQuaternion.w);
+      uniforms.rightArmRotation.value.set(zeroQuaternion.x, zeroQuaternion.y, zeroQuaternion.z, zeroQuaternion.w);
+      uniforms.headVisible.value = 1;
+      return uniforms;
+    } else if (type === 'animal') {
+      const uniforms = THREE.UniformsUtils.clone(animal.ANIMAL_SHADER.uniforms);
+      return uniforms;
+    } else {
+      console.warn('invalid npc type', JSON.stringify(type));
+      return null;
+    }
+  })();
+  mesh.update = now => {
+    _updateMesh(id, mesh, mesh.animation, mesh.hit, uniforms, now);
+  };
+
+  mesh.onBeforeRender = (function(onBeforeRender) {
+    return function() {
+      mesh.material.uniforms.headRotation.value.copy(uniforms.headRotation.value);
+      mesh.material.uniforms.theta.value = uniforms.theta.value;
+      mesh.material.uniforms.hit.value = uniforms.hit.value;
+
+      if (type === 'npc') {
+        mesh.material.uniforms.leftArmRotation.value.copy(uniforms.leftArmRotation.value);
+        mesh.material.uniforms.rightArmRotation.value.copy(uniforms.rightArmRotation.value);
+        mesh.material.uniforms.headVisible.value = uniforms.headVisible.value;
+      }
+
+      onBeforeRender.apply(this, arguments);
+    };
+  })(mesh.onBeforeRender);
+
+  return mesh;
+};
+const meshes = animal.ANIMALS.map((animal, i) => {
+  const mesh = _makeMesh(0, 'animal', animal);
+  mesh.position.x = i;
+  scene.add(mesh);
+  return mesh;
+});
+
+function animate() {
+  orbitControls.update();
+
+  const now = Date.now();
+  meshes.forEach(mesh => {
+    mesh.update(now);
+  });
+
+  renderer.render(scene, camera);
+}
+renderer.setAnimationLoop(animate);
+
+const _tick = () => {
+  meshes.forEach((mesh, i) => {
+    // const {mode, positionStart, positionEnd, rotationStart, rotationEnd, headRotationStart, headRotationEnd, duration} = animation;
+
+    const duration = 10000;
+    const now = Date.now();
+
+    mesh.animation = {
+      mode: 'walk',
+      positionStart: new THREE.Vector3(i, 0, 0),
+      positionEnd: new THREE.Vector3(i, 0, -10),
+      rotationStart: new THREE.Quaternion(),
+      rotationEnd: new THREE.Quaternion(),
+      headRotationStart: new THREE.Quaternion(),
+      headRotationEnd: new THREE.Quaternion(),
+      duration: duration,
+      startTime: now,
+    };
+  });
+};
+_tick();
+setInterval(_tick, 10000);
+
+/* let currentSession = null;
+function onSessionStarted(session) {
+  session.addEventListener('end', onSessionEnded);
+
+  renderer.xr.setSession(session);
+
+  currentSession = session;
+}
+function onSessionEnded() {
+  currentSession.removeEventListener('end', onSessionEnded);
+
+  currentSession = null;
+}
+navigator.xr && navigator.xr.requestSession('immersive-vr', {
+  optionalFeatures: [
+    'local-floor',
+    'bounded-floor',
+  ],
+}).then(onSessionStarted); */
+
+});
+
+</script>
+</body>
+
+</html>

@@ -1,0 +1,48 @@
+{
+  "_from": "animal-js",
+  "_id": "animal-js@0.0.11",
+  "_inBundle": false,
+  "_integrity": "sha512-78bdjqnMFv+AB89GHcSDircmzpvyT0p6QSMRzBd3zap88lJKGqBZOwwv0vhxcHSIHvZ1+Sl9IPvqJ79Fy4YPGA==",
+  "_location": "/animal-js",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "animal-js",
+    "name": "animal-js",
+    "escapedName": "animal-js",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/animal-js/-/animal-js-0.0.11.tgz",
+  "_shasum": "ccdfc7ea4377d8e1e9719cf7e9fd98d2c2b21ed9",
+  "_spec": "animal-js",
+  "_where": "/Users/k/Documents/GitHub/zeo",
+  "author": {
+    "name": "Avaer Kazmer",
+    "email": "a@modules.io"
+  },
+  "bugs": {
+    "url": "https://github.com/modulesio/animal-js/issues"
+  },
+  "bundleDependencies": false,
+  "deprecated": false,
+  "description": "",
+  "homepage": "https://github.com/modulesio/animal-js#readme",
+  "license": "ISC",
+  "main": "index.js",
+  "name": "animal-js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/modulesio/animal-js.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "version": "0.0.11"
+}
